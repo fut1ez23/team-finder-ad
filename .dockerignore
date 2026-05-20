@@ -1,0 +1,10 @@
+venv
+__pycache__
+*.pyc
+.git
+.env
+media
+*.md
+.pytest_cache
+.coverage
+htmlcov
