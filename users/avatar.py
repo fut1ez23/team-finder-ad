@@ -1,36 +1,43 @@
 import io
 import random
+from enum import StrEnum
 
 from django.core.files.base import ContentFile
 from PIL import Image, ImageDraw, ImageFont
 
 
-BACKGROUND_COLORS = [
-    "#4A6FA5",
-    "#6B8E7B",
-    "#8B6F47",
-    "#7B6B8E",
-    "#5C7A8A",
-    "#6B7B8E",
-    "#8B7B6B",
-    "#5A7A6B",
-]
+class AvatarColor(StrEnum):
+    BLUE = "#4A6FA5"
+    GREEN = "#6B8E7B"
+    BROWN = "#8B6F47"
+    PURPLE = "#7B6B8E"
+    TEAL = "#5C7A8A"
+    SLATE = "#6B7B8E"
+    TAN = "#8B7B6B"
+    SAGE = "#5A7A6B"
+
+
+BACKGROUND_COLORS = list(AvatarColor)
+
+AVATAR_SIZE = 128
+AVATAR_FONT_SIZE = AVATAR_SIZE // 2
+AVATAR_ANCHOR = (0, 0)
+AVATAR_TEXT_COLOR = "white"
 
 
 def generate_avatar(name: str) -> ContentFile:
     letter = (name or "?")[0].upper()
     color = random.choice(BACKGROUND_COLORS)
-    size = 128
-    image = Image.new("RGB", (size, size), color)
+    image = Image.new("RGB", (AVATAR_SIZE, AVATAR_SIZE), color)
     draw = ImageDraw.Draw(image)
     try:
-        font = ImageFont.truetype("arial.ttf", 64)
+        font = ImageFont.truetype("arial.ttf", AVATAR_FONT_SIZE)
     except OSError:
-        font = ImageFont.load_default()
-    bbox = draw.textbbox((0, 0), letter, font=font)
-    x = (size - (bbox[2] - bbox[0])) // 2
-    y = (size - (bbox[3] - bbox[1])) // 2 - 4
-    draw.text((x, y), letter, fill="white", font=font)
+        font = ImageFont.load_default(size=AVATAR_FONT_SIZE)
+    bbox = draw.textbbox(AVATAR_ANCHOR, letter, font=font)
+    x = (AVATAR_SIZE - (bbox[2] - bbox[0])) // 2
+    y = (AVATAR_SIZE - (bbox[3] - bbox[1])) // 2 - 4
+    draw.text((x, y), letter, fill=AVATAR_TEXT_COLOR, font=font)
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     return ContentFile(buffer.getvalue(), name=f"avatar_{letter}.png")

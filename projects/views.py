@@ -1,21 +1,14 @@
+from http import HTTPStatus
+
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from projects.constants import CLOSED, OPEN
 from projects.forms import ProjectForm
 from projects.models import Project
-
-PAGE_SIZE = 12
-
-
-def _build_query_prefix(request, exclude=("page",)):
-    params = request.GET.copy()
-    for key in exclude:
-        params.pop(key, None)
-    encoded = params.urlencode()
-    return f"{encoded}&" if encoded else ""
+from projects.service import build_query_prefix, paginate
 
 
 @require_GET
@@ -23,15 +16,14 @@ def project_list(request):
     projects = Project.objects.select_related("owner").prefetch_related(
         "participants"
     )
-    paginator = Paginator(projects, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = paginate(projects, request.GET.get("page"))
     return render(
         request,
         "projects/project_list.html",
         {
             "projects": projects,
             "page_obj": page_obj,
-            "query_prefix": _build_query_prefix(request),
+            "query_prefix": build_query_prefix(request),
         },
     )
 
@@ -49,11 +41,13 @@ def project_detail(request, project_id):
 @require_POST
 def complete_project(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
-    if project.owner_id != request.user.pk or project.status != "open":
-        return JsonResponse({"error": "forbidden"}, status=403)
-    project.status = "closed"
+    if project.owner_id != request.user.pk or project.status != OPEN:
+        return JsonResponse(
+            {"error": "forbidden"}, status=HTTPStatus.FORBIDDEN
+        )
+    project.status = CLOSED
     project.save(update_fields=["status"])
-    return JsonResponse({"status": "ok", "project_status": "closed"})
+    return JsonResponse({"status": "ok", "project_status": CLOSED})
 
 
 @login_required
@@ -61,7 +55,9 @@ def complete_project(request, project_id):
 def toggle_participate(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     if project.owner_id == request.user.pk:
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return JsonResponse(
+            {"error": "forbidden"}, status=HTTPStatus.FORBIDDEN
+        )
 
     if project.participants.filter(pk=request.user.pk).exists():
         project.participants.remove(request.user)
@@ -72,16 +68,13 @@ def toggle_participate(request, project_id):
 
 @login_required
 def create_project(request):
-    if request.method == "POST":
-        form = ProjectForm(request.POST)
-        if form.is_valid():
-            project = form.save(commit=False)
-            project.owner = request.user
-            project.save()
-            project.participants.add(request.user)
-            return redirect("projects:detail", project_id=project.pk)
-    else:
-        form = ProjectForm(initial={"status": "open"})
+    form = ProjectForm(request.POST or None, initial={"status": OPEN})
+    if form.is_valid():
+        project = form.save(commit=False)
+        project.owner = request.user
+        project.save()
+        project.participants.add(request.user)
+        return redirect("projects:detail", project_id=project.pk)
     return render(
         request,
         "projects/create-project.html",
@@ -95,13 +88,10 @@ def edit_project(request, project_id):
     if project.owner_id != request.user.pk:
         return redirect("projects:detail", project_id=project.pk)
 
-    if request.method == "POST":
-        form = ProjectForm(request.POST, instance=project)
-        if form.is_valid():
-            form.save()
-            return redirect("projects:detail", project_id=project.pk)
-    else:
-        form = ProjectForm(instance=project)
+    form = ProjectForm(request.POST or None, instance=project)
+    if form.is_valid():
+        form.save()
+        return redirect("projects:detail", project_id=project.pk)
     return render(
         request,
         "projects/create-project.html",

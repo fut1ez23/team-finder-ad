@@ -6,7 +6,7 @@ from users.validators import validate_github_url
 
 class ProjectForm(forms.ModelForm):
     status = forms.ChoiceField(
-        choices=[("open", "Открыт"), ("closed", "Закрыт")],
+        choices=Project.STATUS_CHOICES,
         label="Статус",
     )
 

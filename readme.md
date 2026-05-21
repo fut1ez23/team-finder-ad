@@ -1,92 +1,66 @@
-# Первоначальная настройка проекта TeamFinder
+# TeamFinder
 
-Вариант задания: **2** (навыки пользователей). В `.env` укажите `TASK_VERSION=2`.
+Платформа для поиска команды на проект. Пользователи могут создавать проекты, искать участников и вступать в чужие проекты.
 
-## 1. Виртуальное окружение
+## Стек технологий
 
-1. **Создайте виртуальное окружение (в папке проекта):**
-   ```bash
-   python3 -m venv venv
-   ```
+- Python, Django
+- PostgreSQL
+- Docker, Docker Compose
+- Pillow (генерация аватаров)
 
-2. **Активируйте окружение:**
-
-    - **Windows (PowerShell):**
-      ```bash
-      venv\Scripts\Activate.ps1
-      ```
-    - **Windows (cmd):**
-      ```bash
-      venv\Scripts\activate
-      ```
-    - **Linux/Mac:**
-      ```bash
-      source venv/bin/activate
-      ```
-
-3. **Установите зависимости из `requirements.txt`:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## 2. Создание `.env`
-
-Скопируйте пример и заполните значения:
+## Запуск через Docker
 
 ```bash
 cp .env_example .env
-```
-
-| Переменная            | Назначение |
-|-----------------------|------------|
-| **DJANGO_SECRET_KEY** | Секретный ключ Django |
-| **DJANGO_DEBUG**      | Режим отладки (`True` при разработке) |
-| **POSTGRES_DB**       | Имя базы данных |
-| **POSTGRES_USER**     | Пользователь PostgreSQL |
-| **POSTGRES_PASSWORD** | Пароль |
-| **POSTGRES_HOST**     | Хост БД (`localhost` или `db` в Docker) |
-| **POSTGRES_PORT**     | Порт (по умолчанию `5432`) |
-| **TASK_VERSION**      | Номер варианта (`2`) |
-
-## 3. Запуск через Docker Compose
-
-```bash
+# заполните .env своими значениями
 docker compose up --build -d
 ```
 
-При первом запуске выполняются миграции, `seed_data` и сбор статики.
-
 Сайт: [http://localhost:8000](http://localhost:8000)
 
-Остановка:
+## Запуск без Docker
 
 ```bash
-docker compose down
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env_example .env
+# заполните .env, поднимите PostgreSQL
+
+python manage.py migrate
+python manage.py seed_data
+python manage.py runserver
 ```
 
-## 4. Запуск без Docker
+## Переменные окружения
 
-1. Поднимите PostgreSQL и укажите параметры в `.env`.
-2. Выполните:
-   ```bash
-   python manage.py migrate
-   python manage.py seed_data
-   python manage.py createsuperuser
-   python manage.py runserver
-   ```
+| Переменная             | Описание                                      |
+|------------------------|-----------------------------------------------|
+| `DJANGO_SECRET_KEY`    | Секретный ключ Django                         |
+| `DJANGO_DEBUG`         | Режим отладки (`True` при разработке)         |
+| `DJANGO_ALLOWED_HOSTS` | Допустимые хосты через запятую                |
+| `POSTGRES_DB`          | Имя базы данных                               |
+| `POSTGRES_USER`        | Пользователь PostgreSQL                       |
+| `POSTGRES_PASSWORD`    | Пароль                                        |
+| `POSTGRES_HOST`        | Хост БД (`localhost` или `db` в Docker)       |
+| `POSTGRES_PORT`        | Порт (по умолчанию `5432`)                    |
 
-## 5. Тестовые данные
+## Тестовые данные
 
-Команда `seed_data` создаёт пользователей с проектами. Пароль для тестовых аккаунтов: `testpass123`.
+Команда `seed_data` создаёт пользователей и проекты. Пароль: `testpass123`.
 
-Примеры email: `anna@example.com`, `boris@example.com`, `clara@example.com`.
+Примеры: `anna@example.com`, `boris@example.com`, `clara@example.com`.
 
-Админ-панель: `http://localhost:8000/admin/` — логин `admin@example.com`, пароль `testpass123` (создаётся командой `seed_data`).
+Админ-панель: [http://localhost:8000/admin/](http://localhost:8000/admin/) — `admin@example.com` / `testpass123`.
 
-При запуске без Docker, если нужен другой администратор: `python manage.py createsuperuser`.
-
-## 6. Тесты
+## Тесты
 
 ```bash
 python manage.py test
 ```
+
+## Автор
+
+<!-- ссылка на GitHub или email -->

@@ -56,14 +56,6 @@ class ProfileEditForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ("name", "surname", "avatar", "about", "phone", "github_url")
-        labels = {
-            "name": "Имя",
-            "surname": "Фамилия",
-            "avatar": "Аватар",
-            "about": "О себе",
-            "phone": "Телефон",
-            "github_url": "GitHub",
-        }
 
     def clean_phone(self):
         phone = validate_phone(self.cleaned_data["phone"])
@@ -78,7 +70,7 @@ class ProfileEditForm(forms.ModelForm):
         return validate_github_url(self.cleaned_data.get("github_url", ""))
 
 
-class CustomPasswordChangeForm(PasswordChangeForm):
+class PasswordChangeForm(PasswordChangeForm):
     old_password = forms.CharField(
         widget=forms.PasswordInput,
         label="Текущий пароль",

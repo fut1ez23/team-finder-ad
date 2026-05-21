@@ -1,54 +1,41 @@
 import json
+from http import HTTPStatus
 
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from projects.service import build_query_prefix, paginate
 from users.forms import (
-    CustomPasswordChangeForm,
     LoginForm,
+    PasswordChangeForm,
     ProfileEditForm,
     RegistrationForm,
 )
 from users.models import Skill, User
 
-PAGE_SIZE = 12
-
-
-def _build_query_prefix(request, exclude=("page",)):
-    params = request.GET.copy()
-    for key in exclude:
-        params.pop(key, None)
-    encoded = params.urlencode()
-    return f"{encoded}&" if encoded else ""
+SKILLS_AUTOCOMPLETE_LIMIT = 10
 
 
 def register(request):
     if request.user.is_authenticated:
         return redirect("projects:list")
-    if request.method == "POST":
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect("users:login")
-    else:
-        form = RegistrationForm()
+    form = RegistrationForm(request.POST or None)
+    if form.is_valid():
+        form.save()
+        return redirect("users:login")
     return render(request, "users/register.html", {"form": form})
 
 
 def login_page(request):
     if request.user.is_authenticated:
         return redirect("projects:list")
-    if request.method == "POST":
-        form = LoginForm(request, data=request.POST)
-        if form.is_valid():
-            login(request, form.user)
-            return redirect("projects:list")
-    else:
-        form = LoginForm()
+    form = LoginForm(request, data=request.POST or None)
+    if form.is_valid():
+        login(request, form.user)
+        return redirect("projects:list")
     return render(request, "users/login.html", {"form": form})
 
 
@@ -60,13 +47,12 @@ def logout_view(request):
 
 @login_required
 def edit_profile(request):
-    if request.method == "POST":
-        form = ProfileEditForm(request.POST, request.FILES, instance=request.user)
-        if form.is_valid():
-            form.save()
-            return redirect("users:detail", user_id=request.user.pk)
-    else:
-        form = ProfileEditForm(instance=request.user)
+    form = ProfileEditForm(
+        request.POST or None, request.FILES or None, instance=request.user
+    )
+    if form.is_valid():
+        form.save()
+        return redirect("users:detail", user_id=request.user.pk)
     return render(
         request,
         "users/edit_profile.html",
@@ -76,13 +62,10 @@ def edit_profile(request):
 
 @login_required
 def change_password(request):
-    if request.method == "POST":
-        form = CustomPasswordChangeForm(request.user, request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect("users:detail", user_id=request.user.pk)
-    else:
-        form = CustomPasswordChangeForm(request.user)
+    form = PasswordChangeForm(request.user, request.POST or None)
+    if form.is_valid():
+        form.save()
+        return redirect("users:detail", user_id=request.user.pk)
     return render(request, "users/change_password.html", {"form": form})
 
 
@@ -103,8 +86,7 @@ def participants_list(request):
     if active_skill:
         participants = participants.filter(skills__name=active_skill).distinct()
 
-    paginator = Paginator(participants, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = paginate(participants, request.GET.get("page"))
 
     return render(
         request,
@@ -114,7 +96,7 @@ def participants_list(request):
             "page_obj": page_obj,
             "all_skills": all_skills,
             "active_skill": active_skill,
-            "query_prefix": _build_query_prefix(request),
+            "query_prefix": build_query_prefix(request),
         },
     )
 
@@ -122,7 +104,9 @@ def participants_list(request):
 @require_GET
 def skills_autocomplete(request):
     query = request.GET.get("q", "").strip()
-    skills = Skill.objects.filter(name__istartswith=query).order_by("name")[:10]
+    skills = Skill.objects.filter(name__istartswith=query).order_by("name")[
+        :SKILLS_AUTOCOMPLETE_LIMIT
+    ]
     data = [{"id": skill.id, "name": skill.name} for skill in skills]
     return JsonResponse(data, safe=False)
 
@@ -131,7 +115,7 @@ def skills_autocomplete(request):
 @require_POST
 def add_skill(request, user_id):
     if request.user.pk != user_id:
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return JsonResponse({"error": "forbidden"}, status=HTTPStatus.FORBIDDEN)
 
     try:
         body = json.loads(request.body)
@@ -149,7 +133,7 @@ def add_skill(request, user_id):
     elif name:
         skill, created = Skill.objects.get_or_create(name=name)
     else:
-        return JsonResponse({"error": "bad request"}, status=400)
+        return JsonResponse({"error": "bad request"}, status=HTTPStatus.BAD_REQUEST)
 
     if not user.skills.filter(pk=skill.pk).exists():
         user.skills.add(skill)
@@ -170,7 +154,7 @@ def add_skill(request, user_id):
 @require_POST
 def remove_skill(request, user_id, skill_id):
     if request.user.pk != user_id:
-        return JsonResponse({"error": "forbidden"}, status=403)
+        return JsonResponse({"error": "forbidden"}, status=HTTPStatus.FORBIDDEN)
 
     user = request.user
     skill = get_object_or_404(Skill, pk=skill_id)
