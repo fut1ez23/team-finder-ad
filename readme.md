@@ -63,4 +63,4 @@ python manage.py test
 
 ## Автор
 
-<!-- ссылка на GitHub или email -->
+AntipovAlexandr23@yandex.ru
